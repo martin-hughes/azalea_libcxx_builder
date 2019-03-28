@@ -1,0 +1,8 @@
+.sconsign.dblite
+Debug/
+docs/html/
+output/
+*.pyc
+*.md.html
+variables.cache
+config/saved_config.ini

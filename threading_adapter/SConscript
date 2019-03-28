@@ -1,0 +1,9 @@
+# Implementation of libcxx's external threading library.
+
+Import('env')
+obj = env.Library("thread_adapter",
+                  [
+                    "threading_adapter.cpp",
+                  ])
+
+Return ("obj")
