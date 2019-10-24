@@ -10,10 +10,12 @@ import argparse
 
 def main(config):
   if not os.path.exists("output/kernel_lib"):
-    os.mkdir("output/kernel_lib")
+    os.makedirs("output/kernel_lib", exist_ok=True)
 
   cxxflags = [
     "-fno-threadsafe-statics",
+    "-nostdinc++",
+    "-mcmodel=large",
     "-isystem %s" % os.path.abspath("threading_adapter/cxx_include"),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["libcxx_base"], "src")),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["kernel_base"], "kernel")),
@@ -24,10 +26,11 @@ def main(config):
 
   os.environ["CXXFLAGS"] = " ".join(cxxflags)
 
+  print("** In case of errors, ensure LLVM_CONFIG_PATH matches your version of LLVM")
   cmake_flags = [
     "cmake",
     os.path.join("..", "..", config["PATHS"]["libcxx_base"]),
-    "-DLLVM_CONFIG_PATH=/usr/lib/llvm-6.0/bin/llvm-config",
+    "-DLLVM_CONFIG_PATH=/usr/lib/llvm-9/bin/llvm-config",
     "-DCMAKE_INSTALL_PREFIX=%s" % install_path,
     "-DLIBCXX_ENABLE_EXCEPTIONS=OFF",
     "-DLIBCXX_ENABLE_SHARED=OFF",
