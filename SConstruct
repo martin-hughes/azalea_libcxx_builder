@@ -15,7 +15,11 @@ def main_build_script(cfg_env):
   lib_obj = env.SConscript("threading_adapter/SConscript", 'env', variant_dir='output', duplicate=0)
   install_folder = os.path.join(developer_path, "libcxx-kernel", "lib")
   env.Install(install_folder, lib_obj)
+  thread_header = env.File("threading_adapter/cxx_include/__external_threading")
+  header_folder = os.path.join(developer_path, "libcxx-kernel", "include", "c++", "v1")
+  env.Install(header_folder, thread_header)
   Alias('install', install_folder)
+  Alias('install', header_folder)
 
 def copy_environ_param(name, env_dict):
   if name in os.environ:
