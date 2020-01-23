@@ -40,7 +40,7 @@ typedef void* __libcpp_condvar_t;
 #define _LIBCPP_CONDVAR_INITIALIZER 0
 
 // Execute Once
-typedef void* __libcpp_exec_once_flag;
+typedef uint16_t __libcpp_exec_once_flag;
 #define _LIBCPP_EXEC_ONCE_INITIALIZER 0
 
 // Thread ID
