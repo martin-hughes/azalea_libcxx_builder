@@ -83,6 +83,7 @@ def main(config):
     "-DLIBCXXABI_ENABLE_STATIC_UNWINDER=ON",
     "-DLIBCXXABI_ENABLE_PIC=OFF",
     "-DLIBCXXABI_LIBCXX_INCLUDE_DIRS=%s" % os.path.join("..", "..", config["PATHS"]["libcxxabi_base"], "include"),
+    "-DLIBCXXABI_LIBCXX_INCLUDES=%s" % os.path.join("..", "..", config["PATHS"]["libcxxabi_base"], "include"),
   ]
 
   os.makedirs("output/kernel_lib", exist_ok = True)
