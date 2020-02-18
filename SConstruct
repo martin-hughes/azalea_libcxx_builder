@@ -10,7 +10,7 @@ def main_build_script(cfg_env):
   env.AppendENVPath('CPATH', os.path.join(developer_path, "libc", "include"))
   env.AppendENVPath('CPATH', os.path.join(developer_path, "kernel", "include"))
   env.AppendENVPath('CPATH', os.path.abspath(os.path.join(cfg_env["kernel_base"], "kernel")))
-  env['CXXFLAGS'] = '-Wall -fno-pic -nostdinc++ -nostdinc -nostdlib -nodefaultlibs -mcmodel=large -ffreestanding -fno-exceptions -ffunction-sections -std=c++17 -U _LINUX -U __linux__ -D __AZALEA__ -D _LIBCPP_BUILDING_LIBRARY'
+  env['CXXFLAGS'] = '-Wall -funwind-tables -fno-pic -nostdinc++ -nostdinc -nostdlib -nodefaultlibs -mcmodel=large -ffreestanding -fno-exceptions -ffunction-sections -std=c++17 -U _LINUX -U __linux__ -D __AZALEA__ -D _LIBCPP_BUILDING_LIBRARY'
 
   lib_obj = env.SConscript("threading_adapter/SConscript", 'env', variant_dir='output', duplicate=0)
   install_folder = os.path.join(developer_path, "libcxx-kernel", "lib")

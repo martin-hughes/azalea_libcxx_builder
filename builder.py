@@ -20,6 +20,7 @@ def main(config):
     "-fno-threadsafe-statics",
     "-nostdinc++",
     "-mcmodel=large",
+    "-funwind-tables",
     "-isystem %s" % os.path.abspath("threading_adapter/cxx_include"),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["libcxx_base"], "src")),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["libcxx_base"], "include")),
