@@ -13,65 +13,61 @@ import argparse
 import shutil
 
 def main(config):
-  if not os.path.exists("output/kernel_lib"):
-    os.makedirs("output/kernel_lib", exist_ok=True)
+  os.makedirs("output/kernel_libcxx", exist_ok = True)
+  os.makedirs("output/kernel_libunwind", exist_ok = True)
+  os.makedirs("output/kernel_libcxxabi", exist_ok = True)
+  os.makedirs("output/user_libcxx", exist_ok=True)
+  os.makedirs("output/user_libunwind", exist_ok=True)
+  os.makedirs("output/user_libcxxabi", exist_ok=True)
+  os.makedirs("output/user_compiler-rt", exist_ok=True)
 
-  cxxflags = [
+  llvm_path = config["PATHS"]["llvm_base"]
+  libcxx_path = os.path.join(llvm_path, "libcxx")
+  libcxxabi_path = os.path.join(llvm_path, "libcxxabi")
+  libunwind_path = os.path.join(llvm_path, "libunwind")
+  compiler_rt_path = os.path.join(llvm_path, "compiler-rt")
+
+  cxx_kernel_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libcxx-kernel"))
+  unwind_kernel_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind-kernel"))
+  libcxxabi_kernel_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libcxxabi-kernel"))
+
+  cxx_user_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libcxx"))
+  unwind_user_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind"))
+  libcxxabi_user_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libcxxabi"))
+  compiler_rt_user_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "compiler-rt"))
+
+  # Main continues after these lists.
+  core_c_flags = [
     "-fno-threadsafe-statics",
-    "-nostdinc++",
+    "-nostdinc",
     "-mcmodel=large",
     "-funwind-tables",
-    "-isystem %s" % os.path.abspath("threading_adapter/cxx_include"),
-    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["libcxx_base"], "src")),
-    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["libcxx_base"], "include")),
-    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["kernel_base"], "kernel"))
-    ]
-
-  cxx_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libcxx-kernel"))
-  unwind_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind-kernel"))
-  libcxxabi_install_path = os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libcxxabi-kernel"))
-
-  os.environ["CXXFLAGS"] = " ".join(cxxflags)
-  os.environ["CFLAGS"] = os.environ["CXXFLAGS"]
-
-  cmake_libcxx_flags = [
-    "cmake",
-    os.path.join("..", "..", config["PATHS"]["libcxx_base"]),
-    "-DLLVM_PATH=%s" % config["PATHS"]["llvm_base"],
-    "-DCMAKE_INSTALL_PREFIX=%s" % cxx_install_path,
-    "-DLIBCXX_ENABLE_EXCEPTIONS=OFF",
-    "-DLIBCXX_ENABLE_SHARED=OFF",
-    "-DLIBCXX_ENABLE_STDIN=OFF",
-    "-DLIBCXX_ENABLE_STDOUT=OFF",
-    "-DLIBCXX_HAS_EXTERNAL_THREAD_API=ON",
-    "-DLIBCXX_HAS_PTHREAD_API=OFF",
-    "-DLIBCXX_CXX_ABI=libcxxabi",
-    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
-    "-DCMAKE_C_COMPILER=/usr/bin/clang",
-    "-DLIBCXX_CXX_ABI_INCLUDE_PATHS=%s" % os.path.join("..", "..", config["PATHS"]["libcxxabi_base"], "include"),
-    ]
-
-  cmake_libunwind_flags = [
-    "cmake",
-    os.path.join("..", "..", config["PATHS"]["libunwind_base"]),
-    "-DLLVM_PATH=%s" % config["PATHS"]["llvm_base"],
-    "-DCMAKE_INSTALL_PREFIX=%s" % unwind_install_path,
-    "-DLIBUNWIND_ENABLE_SHARED=OFF",
-    "-DLIBUNWIND_ENABLE_STATIC=ON",
-    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
-    "-DCMAKE_C_COMPILER=/usr/bin/clang",
-    "-DLLVM_ENABLE_LIBCXX=ON",
-    "-DLIBUNWIND_ENABLE_ASSERTIONS=OFF",
-    "-DCMAKE_BUILD_TYPE=RELEASE",
-    "-DLIBUNWIND_ENABLE_THREADS=OFF",
-    #"-DLIBUNWIND_C_FLAGS=%s" % ";".join(cxxflags)
+    "-isystem %s" % os.path.abspath(os.path.join(libcxx_path, "src")),
+    "-isystem %s" % os.path.abspath(os.path.join(libcxx_path, "include")),
+    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["kernel_base"], "kernel")),
+    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libc", "include")),
+    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "kernel", "include")),
   ]
 
-  cmake_libcxxabi_flags = [
+  core_cxx_flags = core_c_flags + [
+    "-nostdinc++",
+  ]
+
+  kernel_mode_flags = [
+    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind-kernel", "include")),
+    "-isystem %s" % os.path.abspath("threading_adapter/cxx_include"),
+    "-D _LIBUNWIND_IS_BAREMETAL",
+  ]
+
+  user_mode_flags = [
+    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind", "include")),
+  ]
+
+  cmake_libcxxabi_kernel_cmd = [
     "cmake",
-    os.path.join("..", "..", config["PATHS"]["libcxxabi_base"]),
-    "-DLLVM_PATH=%s" % config["PATHS"]["llvm_base"],
-    "-DCMAKE_INSTALL_PREFIX=%s" % libcxxabi_install_path,
+    os.path.join("..", "..", libcxxabi_path),
+    "-DLLVM_PATH=%s" % llvm_path,
+    "-DCMAKE_INSTALL_PREFIX=%s" % libcxxabi_kernel_install_path,
     "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
     "-DCMAKE_C_COMPILER=/usr/bin/clang",
     "-DLIBCXXABI_ENABLE_ASSERTIONS=OFF",
@@ -83,23 +79,135 @@ def main(config):
     "-DLIBCXXABI_BAREMETAL=ON",
     "-DLIBCXXABI_ENABLE_STATIC_UNWINDER=ON",
     "-DLIBCXXABI_ENABLE_PIC=OFF",
-    "-DLIBCXXABI_LIBCXX_INCLUDE_DIRS=%s" % os.path.join("..", "..", config["PATHS"]["libcxxabi_base"], "include"),
-    "-DLIBCXXABI_LIBCXX_INCLUDES=%s" % os.path.join("..", "..", config["PATHS"]["libcxxabi_base"], "include"),
+    "-DLIBCXXABI_LIBCXX_INCLUDE_DIRS=%s" % os.path.join("..", "..", libcxxabi_path, "include"),
+    "-DLIBCXXABI_LIBCXX_INCLUDES=%s" % os.path.join("..", "..", libcxxabi_path, "include"),
   ]
 
-  os.makedirs("output/kernel_lib", exist_ok = True)
-  os.makedirs("output/kernel_libunwind", exist_ok = True)
-  os.makedirs("output/kernel_libcxxabi", exist_ok = True)
+  cmake_libunwind_kernel_cmd = [
+    "cmake",
+    os.path.join("..", "..", libunwind_path),
+    "-DLLVM_PATH=%s" % llvm_path,
+    "-DCMAKE_INSTALL_PREFIX=%s" % unwind_kernel_install_path,
+    "-DLIBUNWIND_ENABLE_SHARED=OFF",
+    "-DLIBUNWIND_ENABLE_STATIC=ON",
+    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+    "-DLLVM_ENABLE_LIBCXX=ON",
+    "-DLIBUNWIND_ENABLE_ASSERTIONS=OFF",
+    "-DCMAKE_BUILD_TYPE=RELEASE",
+    "-DLIBUNWIND_ENABLE_THREADS=OFF",
+  ]
 
-  print ("--- BUILD LIBCXXABI ---")
+  cmake_libcxx_kernel_cmd = [
+    "cmake",
+    os.path.join("..", "..", libcxx_path),
+    "-DLLVM_PATH=%s" % llvm_path,
+    "-DCMAKE_INSTALL_PREFIX=%s" % cxx_kernel_install_path,
+    "-DLIBCXX_HAS_MUSL_LIBC=ON",
+    "-DLIBCXX_ENABLE_EXCEPTIONS=OFF",
+    "-DLIBCXX_ENABLE_SHARED=OFF",
+    "-DLIBCXX_ENABLE_STDIN=OFF",
+    "-DLIBCXX_ENABLE_STDOUT=OFF",
+    "-DLIBCXX_HAS_EXTERNAL_THREAD_API=ON",
+    "-DLIBCXX_HAS_PTHREAD_API=OFF",
+    "-DLIBCXX_CXX_ABI=libcxxabi",
+    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+    "-DLIBCXX_CXX_ABI_INCLUDE_PATHS=%s" % os.path.join("..", "..", libcxxabi_path, "include"),
+    "-DLIBCXX_ENABLE_FILESYSTEM=OFF",
+  ]
 
-  cxxflags = cxxflags + [
-    "-D _LIBUNWIND_IS_BAREMETAL",]
-  os.environ["CXXFLAGS"] = " ".join(cxxflags)
-  os.environ["CFLAGS"] = os.environ["CXXFLAGS"]
+  cmake_libcxxabi_user_cmd = [
+    "cmake",
+    os.path.join("..", "..", libcxxabi_path),
+    "-DLLVM_PATH=%s" % llvm_path,
+    "-DCMAKE_INSTALL_PREFIX=%s" % libcxxabi_user_install_path,
+    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+    "-DLIBCXXABI_ENABLE_ASSERTIONS=ON",
+    "-DCMAKE_BUILD_TYPE=RELEASE",
+    "-DLIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS=OFF",
+    "-DLIBCXXABI_ENABLE_SHARED=OFF",
+    "-DLIBCXXABI_ENABLE_STATIC=ON",
+    "-DLIBCXXABI_ENABLE_STATIC_UNWINDER=ON",
+    "-DLIBCXXABI_ENABLE_PIC=OFF",
+    "-DLIBCXXABI_LIBCXX_INCLUDE_DIRS=%s" % os.path.join("..", "..", libcxxabi_path, "include"),
+    "-DLIBCXXABI_LIBCXX_INCLUDES=%s" % os.path.join("..", "..", libcxxabi_path, "include"),
+  ]
+
+  cmake_libunwind_user_cmd = [
+    "cmake",
+    os.path.join("..", "..", libunwind_path),
+    "-DLLVM_PATH=%s" % llvm_path,
+    "-DCMAKE_INSTALL_PREFIX=%s" % unwind_user_install_path,
+    "-DLIBUNWIND_ENABLE_SHARED=OFF",
+    "-DLIBUNWIND_ENABLE_STATIC=ON",
+    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+    "-DLLVM_ENABLE_LIBCXX=ON",
+    "-DLIBUNWIND_ENABLE_ASSERTIONS=ON",
+    "-DCMAKE_BUILD_TYPE=RELEASE",
+    "-DLIBUNWIND_ENABLE_THREADS=ON",
+  ]
+
+  cmake_libcxx_user_cmd = [
+    "cmake",
+    os.path.join("..", "..", libcxx_path),
+    "-DLLVM_PATH=%s" % llvm_path,
+    "-DCMAKE_INSTALL_PREFIX=%s" % cxx_user_install_path,
+    "-DLIBCXX_HAS_MUSL_LIBC=ON",
+    "-DLIBCXX_ENABLE_EXCEPTIONS=ON",
+    "-DLIBCXX_ENABLE_SHARED=OFF",
+    "-DLIBCXX_ENABLE_STDIN=ON",
+    "-DLIBCXX_ENABLE_STDOUT=ON",
+    "-DLIBCXX_HAS_PTHREAD_API=ON",
+    "-DLIBCXX_CXX_ABI=libcxxabi",
+    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+    "-DLIBCXX_CXX_ABI_INCLUDE_PATHS=%s" % os.path.join("..", "..", libcxxabi_path, "include"),
+    "-DLIBCXX_ENABLE_FILESYSTEM=OFF",
+  ]
+
+  cmake_compiler_rt_user_cmd = [
+    "cmake",
+    os.path.join("..", "..", compiler_rt_path),
+    "-DCMAKE_INSTALL_PREFIX=%s" % compiler_rt_user_install_path,
+    "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
+    "-DCMAKE_C_COMPILER=/usr/bin/clang",
+    "-DCMAKE_BUILD_TYPE=RELEASE",
+    "-DCOMPILER_RT_BAREMETAL_BUILD=ON",
+    "-DCOMPILER_RT_BUILD_SANITIZERS=OFF",
+    "-DSANITIZER_USE_STATIC_CXX_ABI=ON",
+    "-DDEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER=ON",
+    "-DCOMPILER_RT_BUILD_XRAY=OFF",
+    "-DCOMPILER_RT_BUILD_LIBFUZZER=OFF",
+    "-DCOMPILER_RT_BUILD_PROFILE=OFF",
+    "-DCOMPILER_RT_DEFAULT_TARGET_TRIPLE=x86_64-none-elf",
+  ]
+
+  # KERNEL MODE LIBRARIES
+
+  os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + kernel_mode_flags)
+  os.environ["CFLAGS"] = " ".join(core_c_flags + kernel_mode_flags)
+
+  print ("--- BUILD LIBUNWIND (KERNEL MODE) ---")
+
+  with cd("output/kernel_libunwind"):
+    os.system(" ".join(cmake_libunwind_kernel_cmd))
+    os.system("make")
+    os.system("make install")
+
+    # For some reason this doesn't install the headers, so copy them manually
+    os.makedirs(os.path.join(unwind_kernel_install_path, "include"), exist_ok = True)
+    shutil.copytree(os.path.join("..", "..", libunwind_path, "include"),
+                    os.path.join(unwind_kernel_install_path, "include"),
+                    dirs_exist_ok = True)
+
+  print ("")
+  print ("--- BUILD LIBCXXABI (KERNEL MODE)---")
 
   with cd("output/kernel_libcxxabi"):
-    os.system(" ".join(cmake_libcxxabi_flags))
+    os.system(" ".join(cmake_libcxxabi_kernel_cmd))
     os.system("make")
     os.system("make install")
 
@@ -107,28 +215,58 @@ def main(config):
   os.system("scons install")
 
   print ("")
-  print ("--- BUILD LIBUNWIND ---")
+  print ("--- BUILD LIBCXX (KERNEL MODE)---")
 
-  cxxflags = cxxflags + [
-    "-D _LIBUNWIND_IS_BAREMETAL",]
-  os.environ["CXXFLAGS"] = " ".join(cxxflags)
-  os.environ["CFLAGS"] = os.environ["CXXFLAGS"]
+  with cd("output/kernel_libcxx"):
+    os.system(" ".join(cmake_libcxx_kernel_cmd))
+    os.system("make")
+    os.system("make install")
 
-  with cd("output/kernel_libunwind"):
-    os.system(" ".join(cmake_libunwind_flags))
+  # USER MODE LIBRARIES
+
+  os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + user_mode_flags)
+  os.environ["CFLAGS"] = " ".join(core_c_flags + user_mode_flags)
+
+  print ("")
+  print ("--- BUILD LIBUNWIND (USER MODE) ---")
+
+  with cd("output/user_libunwind"):
+    os.system(" ".join(cmake_libunwind_user_cmd))
     os.system("make")
     os.system("make install")
 
     # For some reason this doesn't install the headers, so copy them manually
-    os.makedirs(os.path.join(unwind_install_path, "include"), exist_ok = True)
-    shutil.copytree(os.path.join("..", "..", config["PATHS"]["libunwind_base"], "include"),
-                    os.path.join(unwind_install_path, "include"),
+    os.makedirs(os.path.join(unwind_user_install_path, "include"), exist_ok = True)
+    shutil.copytree(os.path.join("..", "..", libunwind_path, "include"),
+                    os.path.join(unwind_user_install_path, "include"),
                     dirs_exist_ok = True)
 
   print ("")
-  print ("--- BUILD LIBCXX ---")
-  with cd("output/kernel_lib"):
-    os.system(" ".join(cmake_libcxx_flags))
+  print ("--- BUILD LIBCXXABI (USER MODE)---")
+
+  with cd("output/user_libcxxabi"):
+    os.system(" ".join(cmake_libcxxabi_user_cmd))
+    os.system("make")
+    os.system("make install")
+    pass
+
+  print ("")
+  print ("--- BUILD LIBCXX (USER MODE)---")
+
+  os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + user_mode_flags)
+  os.environ["CFLAGS"] = " ".join(core_c_flags + user_mode_flags)
+
+  with cd("output/user_libcxx"):
+    os.system(" ".join(cmake_libcxx_user_cmd))
+    os.system("make")
+    os.system("make install")
+    pass
+
+  print ("")
+  print ("--- BUILD COMPILER-RT (USER MODE)---")
+
+  with cd("output/user_compiler-rt"):
+    os.system(" ".join(cmake_compiler_rt_user_cmd))
     os.system("make")
     os.system("make install")
 
@@ -155,9 +293,6 @@ def regenerate_config(config, cmd_line_args):
   paths = config["PATHS"]
 
   populate_field(paths, args_dict, "kernel_base", "Kernel source base directory")
-  populate_field(paths, args_dict, "libcxx_base", "LLVM Libc++ base directory")
-  populate_field(paths, args_dict, "libunwind_base", "LLVM Libunwind base directory")
-  populate_field(paths, args_dict, "libcxxabi_base", "LLVM Libcxxabi base directory")
   populate_field(paths, args_dict, "sys_image_root", "Azalea system image root directory")
   populate_field(paths, args_dict, "llvm_base", "LLVM project llvm source folder")
 
@@ -175,9 +310,6 @@ if __name__ == "__main__":
   try:
     argp = argparse.ArgumentParser(description = "Project Azalea Builder helper")
     argp.add_argument("--kernel_base", type = str, help = "Location of the base of the Azalea kernel source code tree")
-    argp.add_argument("--libcxx_base", type = str, help = "Location of LLVM Libc++ source code tree")
-    argp.add_argument("--libcxxabi_base", type = str, help = "Location of LLVM Libcxxabi source code tree")
-    argp.add_argument("--libunwind_base", type = str, help = "Location of LLVM Libunwind source code tree")
     argp.add_argument("--sys_image_root", type = str, help = "Root of the Azalea system image's filesystem")
     argp.add_argument("--config_file", type = str, default = "config/saved_config.ini", help = "Config file location")
     argp.add_argument("--llvm_base", type = str, help = "Location of llvm-project's llvm folder")
