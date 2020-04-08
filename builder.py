@@ -185,6 +185,13 @@ def main(config):
     "-DCOMPILER_RT_DEFAULT_TARGET_TRIPLE=x86_64-none-elf",
   ]
 
+  compiler_rt_build_lib_cmd = [
+    'ar s',
+    '-r',
+    os.path.join(compiler_rt_user_install_path, "lib", "libc++start.a"),
+    os.path.join(compiler_rt_user_install_path, "lib", "linux", "*.o"),
+  ]
+
   # KERNEL MODE LIBRARIES
 
   os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + kernel_mode_flags)
@@ -269,6 +276,10 @@ def main(config):
     os.system(" ".join(cmake_compiler_rt_user_cmd))
     os.system("make")
     os.system("make install")
+
+    print("(Creating archive)")
+    os.system(" ".join(compiler_rt_build_lib_cmd))
+
 
 # An easy way to wrap CD calls so they get reverted upon exiting or exceptions.
 #
