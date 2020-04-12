@@ -57,6 +57,7 @@ def main(config):
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind-kernel", "include")),
     "-isystem %s" % os.path.abspath("threading_adapter/cxx_include"),
     "-D _LIBUNWIND_IS_BAREMETAL",
+    '-D __AZ_KERNEL__',
   ]
 
   user_mode_flags = [
