@@ -5,7 +5,7 @@
 #ifndef _AZALEA_LIBCPP_THREADING_SUPPORT
 #define _AZALEA_LIBCPP_THREADING_SUPPORT
 
-#include "klib/synch/kernel_mutexes.h"
+#include "types/mutex.h"
 
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
