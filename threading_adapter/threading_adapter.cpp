@@ -5,8 +5,8 @@
 #include <chrono>
 #include <errno.h>
 #include "cxx_include/__external_threading"
-#include "processor/processor.h"
-#include "klib/synch/kernel_locks.h"
+#include "processor.h"
+#include "types/spinlock.h"
 #include <atomic>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
@@ -15,7 +15,8 @@ int __libcpp_mutex_lock(__libcpp_mutex_t *__m)
 {
   if (__m != nullptr)
   {
-    return static_cast<int>(klib_synch_mutex_acquire(*__m, MUTEX_MAX_WAIT));
+    __m->lock();
+    return 0;
   }
   else
   {
@@ -27,17 +28,7 @@ bool __libcpp_mutex_trylock(__libcpp_mutex_t *__m)
 {
   if (__m != nullptr)
   {
-    SYNC_ACQ_RESULT res;
-    res = klib_synch_mutex_acquire(*__m, 0);
-
-    if (res == SYNC_ACQ_ACQUIRED)
-    {
-      return true;
-    }
-    else
-    {
-      return false;
-    }
+    return __m->try_lock();
   }
   else
   {
@@ -49,7 +40,7 @@ int __libcpp_mutex_unlock(__libcpp_mutex_t *__m)
 {
   if (__m != nullptr)
   {
-    klib_synch_mutex_release(*__m, false);
+    __m->unlock();
     return 0;
   }
   else

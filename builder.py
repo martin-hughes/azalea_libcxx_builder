@@ -44,18 +44,20 @@ def main(config):
     "-funwind-tables",
     "-isystem %s" % os.path.abspath(os.path.join(libcxx_path, "src")),
     "-isystem %s" % os.path.abspath(os.path.join(libcxx_path, "include")),
-    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["kernel_base"], "kernel")),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libc", "include")),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "kernel", "include")),
   ]
 
   core_cxx_flags = core_c_flags + [
     "-nostdinc++",
+    "-std=c++17",
   ]
 
   kernel_mode_flags = [
+    "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["kernel_base"], "kernel", "include")),
     "-isystem %s" % os.path.abspath(os.path.join(config["PATHS"]["sys_image_root"], "apps", "developer", "libunwind-kernel", "include")),
     "-isystem %s" % os.path.abspath("threading_adapter/cxx_include"),
+    "-fno-use-cxa-atexit",
     "-D _LIBUNWIND_IS_BAREMETAL",
     '-D __AZ_KERNEL__',
   ]
@@ -198,86 +200,43 @@ def main(config):
   os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + kernel_mode_flags)
   os.environ["CFLAGS"] = " ".join(core_c_flags + kernel_mode_flags)
 
-  print ("--- BUILD LIBUNWIND (KERNEL MODE) ---")
-
-  with cd("output/kernel_libunwind"):
-    os.system(" ".join(cmake_libunwind_kernel_cmd))
-    os.system("make")
-    os.system("make install")
-
+  simple_build("LIBUNWIND (KERNEL MODE)", "output/kernel_libunwind", cmake_libunwind_kernel_cmd)
     # For some reason this doesn't install the headers, so copy them manually
+  with cd("output/kernel_libunwind"):
     os.makedirs(os.path.join(unwind_kernel_install_path, "include"), exist_ok = True)
     shutil.copytree(os.path.join("..", "..", libunwind_path, "include"),
                     os.path.join(unwind_kernel_install_path, "include"),
                     dirs_exist_ok = True)
 
-  print ("")
-  print ("--- BUILD LIBCXXABI (KERNEL MODE)---")
-
-  with cd("output/kernel_libcxxabi"):
-    os.system(" ".join(cmake_libcxxabi_kernel_cmd))
-    os.system("make")
-    os.system("make install")
-
+  simple_build("LIBCXXABI (KERNEL MODE)", "output/kernel_libcxxabi", cmake_libcxxabi_kernel_cmd)
   os.system("scons sys_image_root='%s' kernel_base='%s'" % (config["PATHS"]["sys_image_root"], os.path.join(config["PATHS"]["kernel_base"])))
-  os.system("scons install")
+  if os.system("scons install") != 0:
+    raise ChildProcessError("Failed to install threading_adapter")
 
-  print ("")
-  print ("--- BUILD LIBCXX (KERNEL MODE)---")
-
-  with cd("output/kernel_libcxx"):
-    os.system(" ".join(cmake_libcxx_kernel_cmd))
-    os.system("make")
-    os.system("make install")
+  simple_build("LIBCXX (KERNEL MODE)", "output/kernel_libcxx", cmake_libcxx_kernel_cmd)
 
   # USER MODE LIBRARIES
 
   os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + user_mode_flags)
   os.environ["CFLAGS"] = " ".join(core_c_flags + user_mode_flags)
 
-  print ("")
-  print ("--- BUILD LIBUNWIND (USER MODE) ---")
-
+  simple_build("LIBUNWIND (USER MODE)", "output/user_libunwind", cmake_libunwind_user_cmd)
+  # For some reason this doesn't install the headers, so copy them manually
   with cd("output/user_libunwind"):
-    os.system(" ".join(cmake_libunwind_user_cmd))
-    os.system("make")
-    os.system("make install")
-
-    # For some reason this doesn't install the headers, so copy them manually
     os.makedirs(os.path.join(unwind_user_install_path, "include"), exist_ok = True)
     shutil.copytree(os.path.join("..", "..", libunwind_path, "include"),
                     os.path.join(unwind_user_install_path, "include"),
                     dirs_exist_ok = True)
 
-  print ("")
-  print ("--- BUILD LIBCXXABI (USER MODE)---")
-
-  with cd("output/user_libcxxabi"):
-    os.system(" ".join(cmake_libcxxabi_user_cmd))
-    os.system("make")
-    os.system("make install")
-    pass
-
-  print ("")
-  print ("--- BUILD LIBCXX (USER MODE)---")
+  simple_build("LIBCXXABI (USER MODE)", "output/user_libcxxabi", cmake_libcxxabi_user_cmd)
 
   os.environ["CXXFLAGS"] = " ".join(core_cxx_flags + user_mode_flags)
   os.environ["CFLAGS"] = " ".join(core_c_flags + user_mode_flags)
+  simple_build("LIBCXX (USER MODE)", "output/user_libcxx", cmake_libcxx_user_cmd)
 
-  with cd("output/user_libcxx"):
-    os.system(" ".join(cmake_libcxx_user_cmd))
-    os.system("make")
-    os.system("make install")
-    pass
-
-  print ("")
-  print ("--- BUILD COMPILER-RT (USER MODE)---")
-
+  simple_build("COMPILER-RT (USER MODE)", "output/user_compiler-rt", cmake_compiler_rt_user_cmd)
+  # We then bundle up some of the output to make it easier for the kernel to link.
   with cd("output/user_compiler-rt"):
-    os.system(" ".join(cmake_compiler_rt_user_cmd))
-    os.system("make")
-    os.system("make install")
-
     print("(Creating archive)")
     os.system(" ".join(compiler_rt_build_lib_cmd))
 
@@ -295,6 +254,18 @@ def cd(newdir):
   finally:
     os.chdir(prevdir)
 
+def simple_build(name, path, flags):
+  print ("")
+  print ("--- BUILD " + name + " ---")
+  with cd(path):
+    if os.system(" ".join(flags)) != 0:
+      raise ChildProcessError("Failed to cmake " + name)
+
+    if os.system("make") != 0:
+      raise ChildProcessError("Failed to make " + name)
+
+    if os.system("make install") != 0:
+      raise ChildProcessError("Failed to install " + name)
 
 def regenerate_config(config, cmd_line_args):
   args_dict = vars(cmd_line_args)
