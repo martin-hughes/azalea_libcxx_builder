@@ -106,14 +106,14 @@ int __libcpp_execute_once(__libcpp_exec_once_flag *flag,
 
 namespace
 {
-  kernel_spinlock key_array_lock{0};
+  ipc::raw_spinlock key_array_lock{0};
   void (*volatile tls_keys[task_thread::MAX_TLS_KEY])(void *){0};
 }
 
 int __libcpp_tls_create(__libcpp_tls_key* __key,
                         void(_LIBCPP_TLS_DESTRUCTOR_CC* __at_exit)(void*))
 {
-  klib_synch_spinlock_lock(key_array_lock);
+  ipc_raw_spinlock_lock(key_array_lock);
   for (int i = 0; i < task_thread::MAX_TLS_KEY; i++)
   {
     if (tls_keys[i] == nullptr)
@@ -128,11 +128,11 @@ int __libcpp_tls_create(__libcpp_tls_key* __key,
         tls_keys[i] = reinterpret_cast<void (*)(void *)>(1);
       }
       *__key = i;
-      klib_synch_spinlock_unlock(key_array_lock);
+      ipc_raw_spinlock_unlock(key_array_lock);
       return 0;
     }
   }
-  klib_synch_spinlock_unlock(key_array_lock);
+  ipc_raw_spinlock_unlock(key_array_lock);
 
   return EAGAIN;
 }
